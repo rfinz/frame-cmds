@@ -8,9 +8,9 @@
 ;; Created: Tue Mar  5 16:30:45 1996
 ;; Version: 0
 ;; Package-Requires: ((frame-fns "0"))
-;; Last-Updated: Fri Jan  5 14:39:57 2018 (-0800)
+;; Last-Updated: Fri Sep 14 12:29:19 2018 (-0700)
 ;;           By: dradams
-;;     Update #: 3120
+;;     Update #: 3127
 ;; URL: https://www.emacswiki.org/emacs/download/frame-cmds.el
 ;; Doc URL: https://emacswiki.org/emacs/FrameModes
 ;; Doc URL: https://www.emacswiki.org/emacs/OneOnOneEmacs
@@ -99,7 +99,7 @@
 ;;
 ;;  Commands defined here:
 ;;
-;;    `create-frame-tiled-horizontally',
+;;    `clone-frame', `create-frame-tiled-horizontally',
 ;;    `create-frame-tiled-vertically', `decrease-frame-transparency'
 ;;    (Emacs 23+), `delete-1-window-frames-on',
 ;;    `delete/iconify-window', `delete/iconify-windows-on',
@@ -194,6 +194,7 @@
 ;;   (global-set-key [(control meta ?z)]            'show-hide)
 ;;   (global-set-key [vertical-line C-down-mouse-1] 'show-hide)
 ;;   (global-set-key [C-down-mouse-1]               'mouse-show-hide-mark-unmark)
+;;   (substitute-key-definition 'make-frame-command 'clone-frame   global-map)
 ;;   (substitute-key-definition 'delete-window      'remove-window global-map)
 ;;   (define-key ctl-x-map "o"                      'other-window-or-frame)
 ;;   (define-key ctl-x-4-map "1"                    'delete-other-frames)
@@ -259,7 +260,7 @@
 ;;   (defvar menu-bar-doremi-menu (make-sparse-keymap "Do Re Mi"))
 ;;   (define-key global-map [menu-bar doremi]
 ;;     (cons "Do Re Mi" menu-bar-doremi-menu))
-;;   (define-key menu-bar-doremi-menu [doremi-font+]
+;;   (define-key menu-bar-doremi-menu [doremi-push-current-frame-config]
 ;;     '("Save Frame Configuration" . save-frame-config))
 ;;
 ;;  See also these files for other frame commands:
@@ -283,6 +284,8 @@
 ;;
 ;;; Change Log:
 ;;
+;; 2018/09/14 dadams
+;;     Added: clone-frame.
 ;; 2018/01/05 dadams
 ;;     frcmds-available-screen-pixel-bounds:
 ;;       Use display-monitor-attributes-list to compute, if option is nil.
@@ -648,8 +651,8 @@ Candidates include `jump-to-frame-config-register' and `show-buffer-menu'."
 ;; Use `cond', not `case', for Emacs 20 byte-compiler.
 (defcustom window-mgr-title-bar-pixel-height (cond ((eq window-system 'mac) 22)
                                                    ;; For older versions of OS X, 40 might be better.
-						   ((eq window-system 'ns)  50)
-						   (t  27))
+                                                   ((eq window-system 'ns)  50)
+                                                   (t  27))
   "*Height of frame title bar provided by the window manager, in pixels.
 You might alternatively call this constant the title-bar \"width\" or
 \"thickness\".  There is no way for Emacs to determine this, so you
@@ -1022,6 +1025,22 @@ Interactively, FRAME is nil, and FRAME-P depends on the prefix arg:
     (setq frame  (if (eq t frame) nil (if (eq nil frame) t frame)))
     (dolist (fr  (frames-on buffer))
       (delete/iconify-window (get-buffer-window buffer frame) frame-p))))
+
+;;;###autoload
+(defun clone-frame (&optional frame no-clone)
+  "Make a new frame with the same parameters as FRAME.
+With a prefix arg, don't clone - just call `make-frame-command'.
+
+FRAME defaults to the selected frame.  The frame is created on the
+same terminal as FRAME.  If the terminal is a text-only terminal then
+also select the new frame."
+  (interactive "i\nP")
+  (if no-clone
+      (make-frame-command)
+    (let* ((default-frame-alist  (frame-parameters frame))
+           (new-fr  (make-frame)))
+      (unless (if (fboundp 'display-graphic-p) (display-graphic-p) window-system)
+        (select-frame new-fr)))))
 
 ;;;###autoload
 (defun rename-frame (&optional old-name new-name all-named)
